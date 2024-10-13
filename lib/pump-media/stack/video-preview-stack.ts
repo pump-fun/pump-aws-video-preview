@@ -30,7 +30,6 @@ export class VideoPreviewStack extends cdk.Stack {
         : environment === "Local"
         ? "media-local.pump.fun"
         : "";
-
     const ffmpegLayer = new lambda.LayerVersion(this, "FFmpegLayer", {
       code: lambda.Code.fromAsset("lib/pump-media/lambda-layer/ffmpeg"),
       description: "FFmpeg and FFprobe binaries",
@@ -43,7 +42,8 @@ export class VideoPreviewStack extends cdk.Stack {
       "../lambda/video-preview-lambda.ts",
       environment,
       videoS3BucketCertificateARN,
-      bucketName
+      bucketName,
+      config.initialize
     );
   }
 
@@ -52,129 +52,110 @@ export class VideoPreviewStack extends cdk.Stack {
     lambdaPath: string,
     environment: string,
     videoS3BucketCertificateARN: string,
-    bucketName: string
+    bucketName: string,
+    initialize: boolean
   ) {
     const certificateArnString = videoS3BucketCertificateARN;
-    // const user =
-    //   environment === "prod"
-    //     ? "pump-client-s3"
-    //     : environment === "devnet"
-    //     ? "pump-client-s3-devnet"
-    //     : environment === "local"
-    //     ? "pump-client-s3-local"
-    //     : "";
+    const userName =
+      environment === "Prod"
+        ? "pump-client-s3-prod"
+        : environment === "Devnet"
+        ? "pump-client-s3-devnet"
+        : environment === "Local"
+        ? "pump-client-s3-local"
+        : "";
 
-    // // Create the bucket policy
-    // const bucketPolicy = {
-    //   Version: "2012-10-17",
-    //   Statement: [
-    //     {
-    //       Effect: "Allow",
-    //       Principal: {
-    //         AWS: `arn:aws:iam::026090514015:user/${user}`,
-    //       },
-    //       Action: "s3:PutObject",
-    //       Resource: `arn:aws:s3:::${bucketName}/*`,
-    //     },
-    //     {
-    //       Sid: "PublicReadGetObject",
-    //       Effect: "Allow",
-    //       Principal: "*",
-    //       Action: "s3:GetObject",
-    //       Resource: `arn:aws:s3:::${bucketName}/*`,
-    //     },
-    //   ],
-    // };
+    let bucket;
+    if (initialize){
+      const bucketId = environment + "Bucket"
+      bucket = new s3.Bucket(this, bucketId, {
+        bucketName: bucketName,
+        publicReadAccess: true,
+        removalPolicy: cdk.RemovalPolicy.RETAIN,
+        blockPublicAccess: s3.BlockPublicAccess.BLOCK_ACLS,
+        cors: [
+          {
+            allowedHeaders: ['*'],
+            allowedMethods: [
+              s3.HttpMethods.GET,
+              s3.HttpMethods.PUT,
+              s3.HttpMethods.POST,
+              s3.HttpMethods.DELETE,
+            ],
+            allowedOrigins: ['*'],
+            exposedHeaders: ['ETag'],
+            maxAge: 3000,
+          },
+        ],
+      });
+  
+      const bucketPolicy = new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        principals: [new iam.ArnPrincipal(`arn:aws:iam::026090514015:user/${userName}`)],
+        actions: ['s3:PutObject'],
+        resources: [`${bucket.bucketArn}/*`],
+      });
+  
+      const publicReadPolicy = new iam.PolicyStatement({
+        sid: 'PublicReadGetObject',
+        effect: iam.Effect.ALLOW,
+        principals: [new iam.StarPrincipal()],
+        actions: ['s3:GetObject'],
+        resources: [`${bucket.bucketArn}/*`],
+      });
+  
+      bucket.addToResourcePolicy(bucketPolicy);
+      bucket.addToResourcePolicy(publicReadPolicy);
+    }
+    else {
+      bucket = s3.Bucket.fromBucketName(this, "S3Bucket", bucketName);
+      new cr.AwsCustomResource(this, 'RemoveBucketPublicAccessBlock', {
+        onCreate: {
+          service: 'S3',
+          action: 'putPublicAccessBlock',
+          parameters: {
+            Bucket: bucketName,
+            PublicAccessBlockConfiguration: {
+              BlockPublicAcls: false,
+              BlockPublicPolicy: false,
+              IgnorePublicAcls: false,
+              RestrictPublicBuckets: false
+            }
+          },
+          physicalResourceId: cr.PhysicalResourceId.of(bucketName)
+        },
+        onUpdate: {
+          service: 'S3',
+          action: 'putPublicAccessBlock',
+          parameters: {
+            Bucket: bucketName,
+            PublicAccessBlockConfiguration: {
+              BlockPublicAcls: false,
+              BlockPublicPolicy: false,
+              IgnorePublicAcls: false,
+              RestrictPublicBuckets: false
+            }
+          },
+          physicalResourceId: cr.PhysicalResourceId.of(bucketName)
+        },
+        policy: cr.AwsCustomResourcePolicy.fromSdkCalls({
+          resources: [bucket.bucketArn]
+        })
+      });
+  
+      // Output the bucket name for reference
+      new cdk.CfnOutput(this, 'ModifiedBucketName', {
+        value: bucketName,
+        description: 'The name of the bucket with public access blocks removed'
+      });
+  
+      // Add a warning message as an output
+      new cdk.CfnOutput(this, 'SecurityWarning', {
+        value: 'WARNING: All public access blocks have been removed from this bucket. Ensure proper security measures are in place.',
+        description: 'Security Warning'
+      });
+    }
 
-    // // CORS configuration
-    // const corsConfig = [
-    //   {
-    //     AllowedHeaders: ["*"],
-    //     AllowedMethods: ["GET", "PUT", "POST", "DELETE"],
-    //     AllowedOrigins: ["*"],
-    //     ExposeHeaders: ["ETag"],
-    //     MaxAgeSeconds: 3000,
-    //   },
-    // ];
-
-    // // Custom resource to create bucket if it doesn't exist, apply policy and CORS
-    // const bucketCustomResource = new cr.AwsCustomResource(
-    //   this,
-    //   `EnsureBucket${environment}`,
-    //   {
-    //     onCreate: {
-    //       service: "S3",
-    //       action: "createBucket",
-    //       parameters: {
-    //         Bucket: bucketName,
-    //       },
-    //       physicalResourceId: cr.PhysicalResourceId.of(bucketName),
-    //       ignoreErrorCodesMatching: '.*',
-    //     },
-    //     onUpdate: {
-    //       service: "S3",
-    //       action: "putBucketPolicy",
-    //       parameters: {
-    //         Bucket: bucketName,
-    //         Policy: JSON.stringify(bucketPolicy),
-    //       },
-    //       physicalResourceId: cr.PhysicalResourceId.of(`${bucketName}-policy`),
-    //       ignoreErrorCodesMatching: '.*',
-    //     },
-    //     policy: cr.AwsCustomResourcePolicy.fromStatements([
-    //       new iam.PolicyStatement({
-    //         actions: [
-    //           "s3:CreateBucket",
-    //           "s3:PutBucketPolicy",
-    //           "s3:PutBucketCors",
-    //         ],
-    //         resources: [
-    //           `arn:aws:s3:::${bucketName}`,
-    //           `arn:aws:s3:::${bucketName}/*`,
-    //         ],
-    //       }),
-    //     ]),
-    //   }
-    // );
-
-    // // Apply CORS configuration
-    // new cr.AwsCustomResource(this, `BucketCors${environment}`, {
-    //   onCreate: {
-    //     service: "S3",
-    //     action: "putBucketCors",
-    //     parameters: {
-    //       Bucket: bucketName,
-    //       CORSConfiguration: {
-    //         CORSRules: corsConfig,
-    //       },
-    //     },
-    //     physicalResourceId: cr.PhysicalResourceId.of(`${bucketName}-cors`),
-    //   },
-    //   onUpdate: {
-    //     service: "S3",
-    //     action: "putBucketCors",
-    //     parameters: {
-    //       Bucket: bucketName,
-    //       CORSConfiguration: {
-    //         CORSRules: corsConfig,
-    //       },
-    //     },
-    //     physicalResourceId: cr.PhysicalResourceId.of(`${bucketName}-cors`),
-    //   },
-    //   policy: cr.AwsCustomResourcePolicy.fromStatements([
-    //     new iam.PolicyStatement({
-    //       actions: ["s3:PutBucketCors"],
-    //       resources: [`arn:aws:s3:::${bucketName}`],
-    //     }),
-    //   ]),
-    // });
-
-    // Reference the bucket (whether it existed or was just created)
-    const bucket = s3.Bucket.fromBucketName(
-      this,
-      `MediaBucketV5${environment}`,
-      bucketName
-    );
 
     // Ensure the custom resources complete before using the bucket
     // bucket.node.addDependency(bucketCustomResource);
