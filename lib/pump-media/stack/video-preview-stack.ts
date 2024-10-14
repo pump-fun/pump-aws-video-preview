@@ -42,7 +42,8 @@ export class VideoPreviewStack extends cdk.Stack {
       "../lambda/video-preview-lambda.ts",
       environment,
       videoS3BucketCertificateARN,
-      bucketName
+      bucketName,
+      config.account
     );
   }
 
@@ -51,7 +52,8 @@ export class VideoPreviewStack extends cdk.Stack {
     lambdaPath: string,
     environment: string,
     videoS3BucketCertificateARN: string,
-    bucketName: string
+    bucketName: string,
+    account: string
   ) {
     const certificateArnString = videoS3BucketCertificateARN;
     const userName =
@@ -68,7 +70,7 @@ export class VideoPreviewStack extends cdk.Stack {
     const bucketPolicy = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       principals: [
-        new iam.ArnPrincipal(`arn:aws:iam::026090514015:user/${userName}`),
+        new iam.ArnPrincipal(`arn:aws:iam::${account}:user/${userName}`),
       ],
       actions: ["s3:PutObject"],
       resources: [`${bucket.bucketArn}/*`],
