@@ -26,7 +26,7 @@ export class PumpAwsInfraCdkPipelineStack extends cdk.Stack {
 
 
     localWave.addStage(new VideoPreviewStage(this, "Local", {
-      env: { account: "026090514015", region: "eu-west-1" },
+      env: { account: "026090514015", region: "us-east-1" },
       environment: "Local"
     }));
   }
