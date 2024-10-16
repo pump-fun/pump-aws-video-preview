@@ -37,5 +37,13 @@ export class PumpAwsVideoCdkPipelineStack extends cdk.Stack {
       env: { account: "026090514348", region: "us-east-1" },
       environment: "Devnet"
     }));
+
+    const prodWave = pipeline.addWave('Prod');
+
+
+    prodWave.addStage(new VideoPreviewStage(this, "Prod", {
+      env: { account: "026090514418", region: "us-east-1" },
+      environment: "Prod"
+    }));
   }
 }
