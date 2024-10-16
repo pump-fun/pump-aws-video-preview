@@ -4,18 +4,18 @@ import { CodePipeline, CodePipelineSource, ShellStep } from 'aws-cdk-lib/pipelin
 import { codestarPolicy } from './codestar-policy';
 import { VideoPreviewStage } from '../pump-media/stage/video-preview-stage';
 
-export class PumpAwsInfraCdkPipelineStack extends cdk.Stack {
+export class PumpAwsVideoCdkPipelineStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    const pipeline = new CodePipeline(this, 'PumpAwsInfraCdkPipeline', {
-      pipelineName: 'PumpAwsInfraCdkPipelineStack',
+    const pipeline = new CodePipeline(this, 'PumpAwsVideoCdkPipeline', {
+      pipelineName: 'PumpAwsVideoCdkPipelineStack',
       crossAccountKeys: true,
       codeBuildDefaults: {
         rolePolicy: codestarPolicy
       },
       synth: new ShellStep('Synth', {
-        input: CodePipelineSource.connection('pump-fun/pump-aws-video-preview', 'main', { connectionArn: 'arn:aws:codestar-connections:eu-west-1:026090514015:connection/05238017-e095-418b-a90d-8613673f6e99' }),
+        input: CodePipelineSource.connection('pump-fun/pump-aws-video-preview', 'main', { connectionArn: 'arn:aws:codeconnections:eu-west-1:026090514274:connection/0ca3e723-5de5-40a8-9199-edfa575dc36f' }),
         commands: ['npm ci', 'npm run build', 'npx cdk synth'],
       }),
 
