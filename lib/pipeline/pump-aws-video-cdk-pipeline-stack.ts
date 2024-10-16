@@ -15,7 +15,7 @@ export class PumpAwsVideoCdkPipelineStack extends cdk.Stack {
         rolePolicy: codestarPolicy
       },
       synth: new ShellStep('Synth', {
-        input: CodePipelineSource.connection('pump-fun/pump-aws-video-preview', 'main', { connectionArn: 'arn:aws:codeconnections:eu-west-1:026090514274:connection/0ca3e723-5de5-40a8-9199-edfa575dc36f' }),
+        input: CodePipelineSource.connection('pump-fun/pump-aws-video-preview', 'master', { connectionArn: 'arn:aws:codeconnections:eu-west-1:026090514274:connection/0ca3e723-5de5-40a8-9199-edfa575dc36f' }),
         commands: ['npm ci', 'npm run build', 'npx cdk synth'],
       }),
 
