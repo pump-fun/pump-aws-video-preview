@@ -29,5 +29,13 @@ export class PumpAwsVideoCdkPipelineStack extends cdk.Stack {
       env: { account: "026090514015", region: "us-east-1" },
       environment: "Local"
     }));
+
+    const devnetWave = pipeline.addWave('Devnet');
+
+
+    devnetWave.addStage(new VideoPreviewStage(this, "Devnet", {
+      env: { account: "026090514348", region: "us-east-1" },
+      environment: "Devnet"
+    }));
   }
 }
